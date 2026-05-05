@@ -46,17 +46,39 @@ export default function Home() {
   const [parseError, setParseError] = useState(false);
   const errorDialogRef = useRef<HTMLDialogElement>(null);
   const [nonce, setNonce] = useState("");
+  const [retrievedToken, setRetrievedToken] = useState("");
+
   useEffect(() => {
     // Nonce must be set in an effect to avoid SSR/client mismatch in the Visualizer output.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setNonce(crypto.randomUUID());
   }, []);
+
   useEffect(() => {
+    const getTokenFromCode = async (responseCode: string) => {
+      const request = new Request(`/api/search?response_code=${responseCode}`);
+      await fetch(request)
+        .then((response) => response.json())
+        .then((json) => {
+          const token = json["vp_token"];
+          setRetrievedToken(token);
+        });
+    };
+
     const hash = window.location.hash.slice(1);
     const params = new URLSearchParams(hash);
     const state = params.get("state");
     if (isUseCase(state)) {
-      const token = params.get("vp_token");
+      let token = null;
+
+      const responseCode = params.get("response_code");
+      if (responseCode) {
+        getTokenFromCode(responseCode);
+        token = retrievedToken;
+      } else {
+        token = params.get("vp_token");
+      }
+
       // Reading URL state on mount requires an effect since window is not available on the server.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setUseCase(state);
@@ -70,7 +92,7 @@ export default function Home() {
         }
       }
     }
-  }, []);
+  }, [retrievedToken]);
 
   useEffect(() => {
     if (parseError) {
