@@ -8,7 +8,7 @@ type JsonValue = JsonObject | unknown[];
 
 const renderEntries = (data: JsonObject) => {
   const keys = Object.keys(data);
-  return keys.map((key, index) => {
+  return keys.filter((key) => data[key] != undefined).map((key, index) => {
     const value = data[key];
     const isPrimitive = typeof value !== "object" || value === null;
     const isArray = Array.isArray(value);

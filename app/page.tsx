@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { Block } from "./common/block";
 import { PillTabs } from "./common/tabs";
 import { Dialog } from "./common/dialog";
@@ -18,9 +18,27 @@ import {
 import {
   ENVIRONMENTS,
   REDIRECT_URI,
+  RESPONSE_URI,
   type Environment,
 } from "./lib/environments";
+import {
+  RESPONSE_MODES,
+  type ResponseMode,
+} from "./lib/response_modes";
 import { TRANSACTION_DATA } from "./data/transaction_data";
+
+type RequestParams = {
+  response_type: string,
+  client_id: string,
+  redirect_uri?: string | undefined,
+  response_uri?: string | undefined,
+  response_mode: ResponseMode,
+  scope: string,
+  login_hint: string,
+  nonce: string,
+  state: string,
+  transaction_data: string,
+};
 
 const getEnvFromReferrer = (referrer: string) => {
   if (/\.next\.proof\.com/.test(referrer)) {
@@ -40,6 +58,9 @@ export default function Home() {
       : "fairfax",
   );
   const [email, setEmail] = useState("");
+  const [responseMode, setResponseMode] = useState<ResponseMode>("fragment");
+  const [redirectUri, setRedirectUri] = useState<string | undefined>(REDIRECT_URI);
+  const [responseUri, setResponseUri] = useState<string | undefined>(undefined);
   const [presentation, setPresentation] = useState<
     Partial<Record<UseCase, ParsedVPToken>>
   >({});
@@ -47,6 +68,22 @@ export default function Home() {
   const errorDialogRef = useRef<HTMLDialogElement>(null);
   const [nonce, setNonce] = useState("");
   const [retrievedToken, setRetrievedToken] = useState("");
+
+  const { endpoint, clientId } = ENVIRONMENTS[env];
+  const requestParams = useMemo<RequestParams>(() => {
+    return {
+      response_type: "vp_token",
+      client_id: clientId[useCase],
+      redirect_uri: redirectUri,
+      response_uri: responseUri,
+      response_mode: responseMode,
+      scope: "urn:proof:params:scope:verifiable-credentials:basic",
+      login_hint: email,
+      nonce: nonce || "",
+      state: useCase,
+      transaction_data: TRANSACTION_DATA[useCase],
+    }
+  }, [clientId, nonce, email, redirectUri, responseUri, responseMode, useCase]);
 
   useEffect(() => {
     // Nonce must be set in an effect to avoid SSR/client mismatch in the Visualizer output.
@@ -105,18 +142,20 @@ export default function Home() {
     setParseError(false);
   };
 
-  const { endpoint, clientId } = ENVIRONMENTS[env];
-  const requestParams = {
-    response_type: "vp_token",
-    client_id: clientId[useCase],
-    redirect_uri: REDIRECT_URI,
-    response_mode: 'fragment',
-    scope: "urn:proof:params:scope:verifiable-credentials:basic",
-    login_hint: email,
-    nonce: nonce || "",
-    state: useCase,
-    transaction_data: TRANSACTION_DATA[useCase],
+  const updateResponseMode = (responseMode: ResponseMode) => {
+    setResponseMode(responseMode);
+    switch (responseMode) {
+      case "fragment":
+        setResponseUri(undefined);
+        setRedirectUri(REDIRECT_URI);
+        break;
+      case "direct_post":
+        setResponseUri(RESPONSE_URI);
+        setRedirectUri(undefined);
+        break;
+    }
   };
+
   const [dismissed, setDismissed] = useState<Set<UseCase>>(new Set());
   const showSuccess = !!presentation[useCase] && !dismissed.has(useCase);
   const handleDismissSuccess = () =>
@@ -249,6 +288,19 @@ export default function Home() {
             {(Object.keys(ENVIRONMENTS) as Environment[]).map((key) => (
               <option key={key} value={key}>
                 {ENVIRONMENTS[key].label}
+              </option>
+            ))}
+          </select>
+          <select
+            name="responseMode"
+            aria-label="Response mode:"
+            value={responseMode}
+            onChange={(e) => updateResponseMode(e.target.value as ResponseMode)}
+            className="pointer-cursor mb-2 bg-transparent text-xs text-gray-600 focus:outline-none sm:text-sm"
+          >
+            {(Object.keys(RESPONSE_MODES) as ResponseMode[]).map((key) => (
+              <option key={key} value={key}>
+                {RESPONSE_MODES[key].label}
               </option>
             ))}
           </select>

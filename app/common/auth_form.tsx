@@ -32,7 +32,17 @@ export function AuthForm({
       return;
     }
     setIsLoading(true);
+
     const params = new URLSearchParams(requestParams);
+    const valuesToRemove: string[] = [];
+    params.forEach((entry, key) => {
+      const value = entry.valueOf();
+      if (value === undefined || value === "undefined") {
+        valuesToRemove.push(key);
+      }
+    });
+
+    valuesToRemove.forEach((key) => params.delete(key));
     window.location.href = `${endpoint}?${params}`;
   };
 
