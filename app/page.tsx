@@ -54,17 +54,17 @@ export default function Home() {
     setNonce(crypto.randomUUID());
   }, []);
 
-  useEffect(() => {
-    const getTokenFromCode = async (responseCode: string) => {
-      const request = new Request(`/api/search?response_code=${responseCode}`);
-      await fetch(request)
-        .then((response) => response.json())
-        .then((json) => {
-          const token = json["vp_token"];
-          setRetrievedToken(token);
-        });
-    };
+  const getTokenFromCode = async (responseCode: string) => {
+    const request = new Request(`/api/search?response_code=${responseCode}`);
+    await fetch(request)
+      .then((response) => response.json())
+      .then((json) => {
+        const token = json["vp_token"];
+        setRetrievedToken(token);
+      });
+  };
 
+  useEffect(() => {
     const hash = window.location.hash.slice(1);
     const params = new URLSearchParams(hash);
     const state = params.get("state");
