@@ -14,3 +14,8 @@ next-env.d.ts
 
 # Editor
 .vscode/
+
+# amplify
+.amplify
+amplify_outputs*
+amplifyconfiguration*
