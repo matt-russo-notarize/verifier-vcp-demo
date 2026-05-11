@@ -29,3 +29,4 @@ export const ENVIRONMENTS: Record<
 };
 
 export const REDIRECT_URI = "https://demo.next.proof.com/";
+export const RESPONSE_URI = "https://demo.next.proof.com/api/verify";
