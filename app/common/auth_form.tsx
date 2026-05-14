@@ -3,18 +3,62 @@ import { useId, useRef, useState } from "react";
 import { clsx } from "clsx";
 
 import { Button } from "./button";
+import { AuthorizationMethod } from "../lib/authorization_methods";
+import { AUTHORIZATION_ENDPOINT, type Environment } from "../lib/environments";
+
+async function generateTransactionUrl({
+  hostname,
+  environment,
+  requestParams,
+  authzMethod,
+}: {
+  hostname: string;
+  environment: Environment;
+  requestParams: Record<string, string>;
+  authzMethod: AuthorizationMethod;
+}) {
+  const requestBody = new URLSearchParams(requestParams);
+  const valuesToRemove: string[] = [];
+  requestBody.forEach((entry, key) => {
+    const value = entry.valueOf();
+    if (value === undefined || value === "undefined") {
+      valuesToRemove.push(key);
+    }
+  });
+
+  valuesToRemove.forEach((key) => requestBody.delete(key));
+
+  if (authzMethod === "query") {
+    return `${hostname}${AUTHORIZATION_ENDPOINT}?${requestBody}`;
+  } else {
+    const request = new Request(`/api/create?environment=${environment}`);
+    return await fetch(request, {
+      method: "POST",
+      body: requestBody,
+    })
+      .then((response) => response.json())
+      .then((json) => {
+        const requestUri = json["request_uri"];
+        return `${hostname}${AUTHORIZATION_ENDPOINT}?request_uri=${requestUri}&client_id=${requestParams.client_id}`;
+      });
+  }
+}
 
 // Collects the user's email and initiates the OID4VP authorization flow
 export function AuthForm({
   email,
   setEmail,
+  environment,
   requestParams,
-  endpoint,
+  hostname,
+  authzMethod,
 }: {
   email: string;
   setEmail: (email: string) => void;
+  environment: Environment;
   requestParams: Record<string, string>;
-  endpoint: string;
+  hostname: string;
+  authzMethod: AuthorizationMethod;
 }) {
   const emailErrorId = useId();
   const emailRef = useRef<HTMLInputElement>(null);
@@ -22,7 +66,7 @@ export function AuthForm({
   const [showEmailError, setShowEmailError] = useState(false);
 
   // Redirects to <endpoint> with <requestParams> as query parameters
-  const handleAuthorize = (e: React.FormEvent) => {
+  const handleAuthorize = async (e: React.SubmitEvent) => {
     e.preventDefault();
     const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -33,17 +77,11 @@ export function AuthForm({
     }
     setIsLoading(true);
 
-    const params = new URLSearchParams(requestParams);
-    const valuesToRemove: string[] = [];
-    params.forEach((entry, key) => {
-      const value = entry.valueOf();
-      if (value === undefined || value === "undefined") {
-        valuesToRemove.push(key);
-      }
-    });
-
-    valuesToRemove.forEach((key) => params.delete(key));
-    window.location.href = `${endpoint}?${params}`;
+    await generateTransactionUrl({ hostname, environment, requestParams, authzMethod }).then(
+      (transactionUrl) => {
+        window.location.href = transactionUrl;
+      },
+    );
   };
 
   return (

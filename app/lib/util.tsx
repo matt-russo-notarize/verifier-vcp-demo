@@ -1,6 +1,7 @@
 type Disclosure = { salt: string; claim: string; value: unknown };
 
 export type ParsedSDJWT = {
+  rawPresentation: string;
   vcPayload: Record<string, unknown>;
   disclosures: Disclosure[];
   kbJwtPayload: Record<string, unknown> | null;
@@ -49,7 +50,7 @@ export const parseSDJWT = (token: string): ParsedSDJWT => {
     ? (decodeBase64Url(kbJwtSegment.split(".")[1]) as Record<string, unknown>)
     : null;
 
-  return { vcPayload, disclosures, kbJwtPayload };
+  return { rawPresentation: token, vcPayload, disclosures, kbJwtPayload };
 };
 
 export const parseVPToken = (raw: string): ParsedVPToken => {

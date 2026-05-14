@@ -1,5 +1,5 @@
 import { Tabs } from "../common/tabs";
-import { Visualizer } from "../common/visualizer";
+import { CopyableView, Visualizer } from "../common/visualizer";
 import { Code } from "../common/code";
 import { type ParsedVPToken } from "../lib/util";
 
@@ -65,6 +65,13 @@ export function ProtocolPanel({
                     <div>
                       <p className="mb-2 text-sm font-bold">Key Binding JWT</p>
                       <Visualizer data={parsed.kbJwtPayload ?? null} />
+                    </div>
+                    <div>
+                      <p className="mb-2 text-sm font-bold">Raw VC Presentation</p>
+                      <CopyableView
+                        copyData={parsed.rawPresentation ?? null}
+                        displayData={parsed.rawPresentation ? <span className="whitespace-nowrap">{parsed.rawPresentation}</span> : null}
+                      />
                     </div>
                   </div>
                 )),

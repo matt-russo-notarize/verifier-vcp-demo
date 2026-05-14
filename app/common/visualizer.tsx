@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, ReactNode } from "react";
 import { clsx } from "clsx";
 
 type JsonObject = Record<string, unknown>;
@@ -8,69 +8,71 @@ type JsonValue = JsonObject | unknown[];
 
 const renderEntries = (data: JsonObject) => {
   const keys = Object.keys(data);
-  return keys.filter((key) => data[key] != undefined).map((key, index) => {
-    const value = data[key];
-    const isPrimitive = typeof value !== "object" || value === null;
-    const isArray = Array.isArray(value);
-    const isLast = index === keys.length - 1;
+  return keys
+    .filter((key) => data[key] != undefined)
+    .map((key, index) => {
+      const value = data[key];
+      const isPrimitive = typeof value !== "object" || value === null;
+      const isArray = Array.isArray(value);
+      const isLast = index === keys.length - 1;
 
-    if (isArray) {
-      const arrayVal = (value as unknown[]).map((v, i) => {
-        const isLastItem = i === (value as unknown[]).length - 1;
-        const isPrimitiveItem = typeof v !== "object" || v === null;
-        if (isPrimitiveItem) {
+      if (isArray) {
+        const arrayVal = (value as unknown[]).map((v, i) => {
+          const isLastItem = i === (value as unknown[]).length - 1;
+          const isPrimitiveItem = typeof v !== "object" || v === null;
+          if (isPrimitiveItem) {
+            return (
+              <div className="pr-2" key={i}>
+                {JSON.stringify(v)}
+                {!isLastItem && ","}
+              </div>
+            );
+          }
           return (
-            <div className="pr-2" key={i}>
-              {JSON.stringify(v)}
-              {!isLastItem && ","}
+            <div key={i}>
+              {`{`}
+              <div className="ml-4">{renderEntries(v as JsonObject)}</div>
+              <span>
+                {`}`}
+                {!isLastItem && ","}
+              </span>
             </div>
           );
-        }
+        });
         return (
-          <div key={i}>
-            {`{`}
-            <div className="ml-4">{renderEntries(v as JsonObject)}</div>
-            <span>
-              {`}`}
-              {!isLastItem && ","}
-            </span>
-          </div>
+          <Info key={key} label={key} isLast={isLast}>
+            <div>
+              {`[`}
+              <div className="ml-4">{arrayVal}</div>
+              <span>
+                {`]`}
+                {!isLast && ","}
+              </span>
+            </div>
+          </Info>
         );
-      });
+      }
+
       return (
-        <Info key={key} label={key} isLast={isLast}>
-          <div>
-            {`[`}
-            <div className="ml-4">{arrayVal}</div>
-            <span>
-              {`]`}
+        <Info key={key} label={key} isLast={isLast} isExpandable={!isPrimitive}>
+          {isPrimitive ? (
+            <div className="pr-2 whitespace-nowrap">
+              {JSON.stringify(value)}
               {!isLast && ","}
-            </span>
-          </div>
+            </div>
+          ) : (
+            <div>
+              {`{`}
+              <div className="ml-4">{renderEntries(value as JsonObject)}</div>
+              <span>
+                {`}`}
+                {!isLast && ","}
+              </span>
+            </div>
+          )}
         </Info>
       );
-    }
-
-    return (
-      <Info key={key} label={key} isLast={isLast} isExpandable={!isPrimitive}>
-        {isPrimitive ? (
-          <div className="pr-2 whitespace-nowrap">
-            {JSON.stringify(value)}
-            {!isLast && ","}
-          </div>
-        ) : (
-          <div>
-            {`{`}
-            <div className="ml-4">{renderEntries(value as JsonObject)}</div>
-            <span>
-              {`}`}
-              {!isLast && ","}
-            </span>
-          </div>
-        )}
-      </Info>
-    );
-  });
+    });
 };
 
 const Info = ({
@@ -139,24 +141,22 @@ const Info = ({
 const isEmpty = (data: JsonValue) =>
   Array.isArray(data) ? data.length === 0 : Object.keys(data).length === 0;
 
-function ExpandedView({
-  open,
-  close,
-  data,
+export function CopyableView({
+  copyData,
+  displayData
 }: {
-  open: string;
-  close: string;
-  data: JsonValue;
+  copyData: string;
+  displayData: ReactNode;
 }) {
   const [isCopied, setIsCopied] = useState(false);
 
   const copy = useCallback(() => {
-    const jsonData = JSON.stringify(data, null, 2);
-    navigator.clipboard.writeText(jsonData).then(() => {
+    const data = copyData;
+    navigator.clipboard.writeText(data).then(() => {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     });
-  }, [data]);
+  }, [copyData]);
 
   return (
     <div className="relative">
@@ -172,20 +172,35 @@ function ExpandedView({
         tabIndex={0}
         className="flex flex-col overflow-auto rounded bg-gray-950 p-6 font-mono text-sm text-gray-500"
       >
-        {isEmpty(data) ? (
-          <span>
-            {open}
-            {close}
-          </span>
-        ) : (
-          <>
-            <span>{open}</span>
-            <div className="ml-4">{renderEntries(data as JsonObject)}</div>
-            <span>{close}</span>
-          </>
-        )}
+        {displayData}
       </div>
     </div>
+  );
+}
+
+function ExpandedView({
+  open,
+  close,
+  data,
+}: {
+  open: string;
+  close: string;
+  data: JsonValue;
+}) {
+  return CopyableView({
+    copyData: JSON.stringify(data, null, 2),
+    displayData: isEmpty(data) ? (
+        <span>
+          {open}
+          {close}
+        </span>
+      ) : (
+        <>
+          <span>{open}</span>
+          <div className="ml-4">{renderEntries(data as JsonObject)}</div>
+          <span>{close}</span>
+        </>
+      )},
   );
 }
 
