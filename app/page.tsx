@@ -19,25 +19,28 @@ import {
   ENVIRONMENTS,
   REDIRECT_URI,
   RESPONSE_URI,
+  AUTHORIZATION_ENDPOINT,
+  PUSHED_AUTHORIZATION_ENDPOINT,
   type Environment,
 } from "./lib/environments";
+import { RESPONSE_MODES, type ResponseMode } from "./lib/response_modes";
 import {
-  RESPONSE_MODES,
-  type ResponseMode,
-} from "./lib/response_modes";
+  AUTHORIZATION_METHODS,
+  type AuthorizationMethod,
+} from "./lib/authorization_methods";
 import { TRANSACTION_DATA } from "./data/transaction_data";
 
 type RequestParams = {
-  response_type: string,
-  client_id: string,
-  redirect_uri?: string | undefined,
-  response_uri?: string | undefined,
-  response_mode: ResponseMode,
-  scope: string,
-  login_hint: string,
-  nonce: string,
-  state: string,
-  transaction_data: string,
+  response_type: string;
+  client_id: string;
+  redirect_uri?: string | undefined;
+  response_uri?: string | undefined;
+  response_mode: ResponseMode;
+  scope: string;
+  login_hint: string;
+  nonce: string;
+  state: string;
+  transaction_data: string;
 };
 
 const getEnvFromReferrer = (referrer: string) => {
@@ -59,8 +62,12 @@ export default function Home() {
   );
   const [email, setEmail] = useState("");
   const [responseMode, setResponseMode] = useState<ResponseMode>("fragment");
-  const [redirectUri, setRedirectUri] = useState<string | undefined>(REDIRECT_URI);
+  const [redirectUri, setRedirectUri] = useState<string | undefined>(
+    REDIRECT_URI,
+  );
   const [responseUri, setResponseUri] = useState<string | undefined>(undefined);
+  const [authzMethod, setAuthzMethod] = useState<AuthorizationMethod>("query");
+  const [authzEndpoint, setAuthzEndpoint] = useState<string>(AUTHORIZATION_ENDPOINT);
   const [presentation, setPresentation] = useState<
     Partial<Record<UseCase, ParsedVPToken>>
   >({});
@@ -69,11 +76,11 @@ export default function Home() {
   const [nonce, setNonce] = useState("");
   const [retrievedToken, setRetrievedToken] = useState("");
 
-  const { endpoint, clientId } = ENVIRONMENTS[env];
+  const { hostname, clientApps } = ENVIRONMENTS[env];
   const requestParams = useMemo<RequestParams>(() => {
     return {
       response_type: "vp_token",
-      client_id: clientId[useCase],
+      client_id: clientApps[useCase].clientId,
       redirect_uri: redirectUri,
       response_uri: responseUri,
       response_mode: responseMode,
@@ -82,8 +89,8 @@ export default function Home() {
       nonce: nonce || "",
       state: useCase,
       transaction_data: TRANSACTION_DATA[useCase],
-    }
-  }, [clientId, nonce, email, redirectUri, responseUri, responseMode, useCase]);
+    };
+  }, [clientApps, nonce, email, redirectUri, responseUri, responseMode, useCase]);
 
   useEffect(() => {
     // Nonce must be set in an effect to avoid SSR/client mismatch in the Visualizer output.
@@ -152,6 +159,18 @@ export default function Home() {
       case "direct_post":
         setResponseUri(RESPONSE_URI);
         setRedirectUri(undefined);
+        break;
+    }
+  };
+
+  const updateAuthzMethod = (authzMethod: AuthorizationMethod) => {
+    setAuthzMethod(authzMethod);
+    switch(authzMethod) {
+      case "query":
+        setAuthzEndpoint(AUTHORIZATION_ENDPOINT);
+        break;
+      case "pushed":
+        setAuthzEndpoint(PUSHED_AUTHORIZATION_ENDPOINT);
         break;
     }
   };
@@ -238,8 +257,10 @@ export default function Home() {
               <AuthForm
                 setEmail={setEmail}
                 email={email}
+                environment={env}
                 requestParams={requestParams}
-                endpoint={endpoint}
+                hostname={hostname}
+                authzMethod={authzMethod}
               />
             </div>
           </Block>
@@ -248,7 +269,7 @@ export default function Home() {
             <ProtocolPanel
               presentation={presentation[useCase] ?? null}
               requestParams={requestParams}
-              endpoint={endpoint}
+              endpoint={`${hostname}${authzEndpoint}`}
             />
           </Block>
         </div>
@@ -303,6 +324,23 @@ export default function Home() {
                 {RESPONSE_MODES[key].label}
               </option>
             ))}
+          </select>
+          <select
+            name="authzMethod"
+            aria-label="Authorization Request Method:"
+            value={authzMethod}
+            onChange={(e) =>
+              updateAuthzMethod(e.target.value as AuthorizationMethod)
+            }
+            className="pointer-cursor mb-2 bg-transparent text-xs text-gray-600 focus:outline-none sm:text-sm"
+          >
+            {(Object.keys(AUTHORIZATION_METHODS) as AuthorizationMethod[]).map(
+              (key) => (
+                <option key={key} value={key}>
+                  {AUTHORIZATION_METHODS[key].label}
+                </option>
+              ),
+            )}
           </select>
         </div>
       </footer>
