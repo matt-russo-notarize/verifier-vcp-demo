@@ -6,7 +6,7 @@ import { clsx } from "clsx";
 type JsonObject = Record<string, unknown>;
 type JsonValue = JsonObject | unknown[];
 
-const renderEntries = (data: JsonObject) => {
+const renderEntries = (data: JsonObject, openKeys: Set<string>) => {
   const keys = Object.keys(data);
   return keys
     .filter((key) => data[key] != undefined)
@@ -31,7 +31,9 @@ const renderEntries = (data: JsonObject) => {
           return (
             <div key={i}>
               {`{`}
-              <div className="ml-4">{renderEntries(v as JsonObject)}</div>
+              <div className="ml-4">
+                {renderEntries(v as JsonObject, openKeys)}
+              </div>
               <span>
                 {`}`}
                 {!isLastItem && ","}
@@ -40,7 +42,12 @@ const renderEntries = (data: JsonObject) => {
           );
         });
         return (
-          <Info key={key} label={key} isLast={isLast}>
+          <Info
+            key={key}
+            label={key}
+            isLast={isLast}
+            defaultOpen={openKeys.has(key)}
+          >
             <div>
               {`[`}
               <div className="ml-4">{arrayVal}</div>
@@ -54,7 +61,13 @@ const renderEntries = (data: JsonObject) => {
       }
 
       return (
-        <Info key={key} label={key} isLast={isLast} isExpandable={!isPrimitive}>
+        <Info
+          key={key}
+          label={key}
+          isLast={isLast}
+          isExpandable={!isPrimitive}
+          defaultOpen={openKeys.has(key)}
+        >
           {isPrimitive ? (
             <div className="pr-2 whitespace-nowrap">
               {JSON.stringify(value)}
@@ -63,7 +76,9 @@ const renderEntries = (data: JsonObject) => {
           ) : (
             <div>
               {`{`}
-              <div className="ml-4">{renderEntries(value as JsonObject)}</div>
+              <div className="ml-4">
+                {renderEntries(value as JsonObject, openKeys)}
+              </div>
               <span>
                 {`}`}
                 {!isLast && ","}
@@ -80,13 +95,15 @@ const Info = ({
   children,
   isLast,
   isExpandable = true,
+  defaultOpen = false,
 }: {
   label: string;
   children: React.ReactNode;
   isLast?: boolean;
   isExpandable?: boolean;
+  defaultOpen?: boolean;
 }) => {
-  const [isExpanded, setIsExpanded] = useState(!isExpandable);
+  const [isExpanded, setIsExpanded] = useState(!isExpandable || defaultOpen);
 
   return (
     <div
@@ -145,10 +162,12 @@ function ExpandedView({
   open,
   close,
   data,
+  openKeys,
 }: {
   open: string;
   close: string;
   data: JsonValue;
+  openKeys: Set<string>;
 }) {
   const [isCopied, setIsCopied] = useState(false);
 
@@ -182,7 +201,9 @@ function ExpandedView({
         ) : (
           <>
             <span>{open}</span>
-            <div className="ml-4">{renderEntries(data as JsonObject)}</div>
+            <div className="ml-4">
+              {renderEntries(data as JsonObject, openKeys)}
+            </div>
             <span>{close}</span>
           </>
         )}
@@ -194,11 +215,14 @@ function ExpandedView({
 export function Visualizer({
   isLoading,
   data,
+  defaultOpenKeys,
 }: {
   isLoading?: boolean;
   // An explicit null data value tells the component it has no data,
   // where as undefined implies it is awaiting data
   data?: JsonValue | null;
+  // Key names that should render expanded by default, matched at any depth
+  defaultOpenKeys?: string[];
 }) {
   if (isLoading) {
     return (
@@ -212,7 +236,14 @@ export function Visualizer({
     const isArray = Array.isArray(data);
     const open = isArray ? "[" : "{";
     const close = isArray ? "]" : "}";
-    return <ExpandedView open={open} close={close} data={data} />;
+    return (
+      <ExpandedView
+        open={open}
+        close={close}
+        data={data}
+        openKeys={new Set(defaultOpenKeys)}
+      />
+    );
   }
 
   if (data === null) {

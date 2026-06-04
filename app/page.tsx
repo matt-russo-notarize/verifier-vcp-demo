@@ -9,14 +9,14 @@ import { MerchantCase } from "./_components/use_cases/merchant-case";
 import { WireTransferCase } from "./_components/use_cases/wire-transfer-case";
 import { AP2Case } from "./_components/use_cases/ap2-case";
 import { ProtocolPanel } from "./_components/protocol-panel";
-import { consumeNonce, parseUseCase, type UseCase } from "./lib/util";
+import { consumeNonce, getNonce, parseUseCase, type UseCase } from "./lib/util";
 import {
+  callbackURI,
   EnvironmentKey,
   ENVIRONMENTS,
-  REDIRECT_URI,
   RESPONSE_MODES,
-  RESPONSE_URI,
 } from "./lib/environments";
+import { authorizationRequestPreview } from "./lib/request_preview";
 
 type Presentation = Partial<Record<UseCase, Record<string, unknown>>>;
 
@@ -38,6 +38,13 @@ export default function Home() {
     getInitialEnvironmentKey(),
   );
   const [responseMode, setResponseMode] = useState<ResponseMode>("fragment");
+  const [email, setEmail] = useState("");
+  const [nonce, setNonce] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    getNonce().then(setNonce);
+  }, []);
+
   const fetchVPToken = async (responseCode: string): Promise<string> => {
     const request = new Request(`/api/search?response_code=${responseCode}`);
     // promise error is uncaught
@@ -49,11 +56,12 @@ export default function Home() {
   const [presentation, setPresentation] = useState<Presentation>({});
 
   useEffect(() => {
+    const environment = ENVIRONMENTS[environmentKey].environment;
     init({
-      environment: ENVIRONMENTS[environmentKey].environment,
+      environment,
       client_id: ENVIRONMENTS[environmentKey].clientId[useCase],
       response_mode: responseMode,
-      callback_uri: responseMode == "fragment" ? REDIRECT_URI : RESPONSE_URI,
+      callback_uri: callbackURI(environment, responseMode),
     });
   }, [useCase, environmentKey, responseMode]);
 
@@ -100,6 +108,14 @@ export default function Home() {
   const showSuccess = !!presentation[useCase] && !dismissed.has(useCase);
   const handleDismissSuccess = () =>
     setDismissed((prev) => new Set(prev).add(useCase));
+
+  const { endpoint, params: requestParams } = authorizationRequestPreview({
+    environmentKey,
+    useCase,
+    responseMode,
+    nonce,
+    loginHint: email,
+  });
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
@@ -164,16 +180,20 @@ export default function Home() {
                     ? "Authorize the agent to shop"
                     : "Authorize your purchase"}
               </h2>
-              <AuthForm useCase={useCase} />
+              <AuthForm
+                useCase={useCase}
+                email={email}
+                onEmailChange={setEmail}
+                nonce={nonce}
+              />
             </div>
           </Block>
 
-          {/* Request parameters no longer accessible here, do we care? */}
           <Block id="protocol-block" title="Protocol">
             <ProtocolPanel
               presentation={presentation[useCase] ?? null}
-              requestParams={{}}
-              endpoint=""
+              requestParams={requestParams}
+              endpoint={endpoint}
             />
           </Block>
         </div>

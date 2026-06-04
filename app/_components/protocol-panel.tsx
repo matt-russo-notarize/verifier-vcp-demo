@@ -8,7 +8,7 @@ export function ProtocolPanel({
   endpoint,
 }: {
   presentation: Record<string, unknown> | null;
-  requestParams: Record<string, string>;
+  requestParams: Record<string, unknown>;
   endpoint: string;
 }) {
   return (
@@ -26,7 +26,10 @@ export function ProtocolPanel({
               </div>
               <div>
                 <p className="mb-2 text-sm font-bold">Request payload:</p>
-                <Visualizer data={requestParams} />
+                <Visualizer
+                  data={requestParams}
+                  defaultOpenKeys={["transaction_data", "payload"]}
+                />
               </div>
             </div>
           ),
@@ -36,7 +39,15 @@ export function ProtocolPanel({
           label: "Presentation",
           content: (
             <div className="flex flex-col gap-6 pt-2">
-              <Visualizer data={presentation} />
+              <Visualizer
+                data={presentation}
+                defaultOpenKeys={[
+                  "proof_id_default",
+                  "payload",
+                  "disclosures",
+                  "kbJwt",
+                ]}
+              />
             </div>
           ),
         },

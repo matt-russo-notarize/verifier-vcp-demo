@@ -13,7 +13,7 @@ export const ENVIRONMENTS: Record<
   localhost: {
     label: "localhost",
     environment: "localhost",
-    clientId: { merchant: "caxdw5a7d", ap2: "cabd569jn", wire: "ca3ng8pbd" },
+    clientId: { merchant: "cay6ej55p", ap2: "cay6ej55p", wire: "cay6ej55p" },
   },
   next: {
     label: "Next",
@@ -32,5 +32,17 @@ export const ENVIRONMENTS: Record<
   },
 };
 
-export const REDIRECT_URI = "https://demo.next.proof.com/";
-export const RESPONSE_URI = "https://demo.next.proof.com/api/verify";
+export const callbackURI = (
+  environment: Environment,
+  responseMode: ResponseMode,
+): string => {
+  if (environment === "localhost") {
+    return responseMode === "fragment"
+      ? "http://localhost:3050"
+      : "http://localhost:3050/api/verify";
+  } else {
+    return responseMode === "fragment"
+      ? "https://demo.next.proof.com"
+      : "https://demo.next.proof.com/api/verify";
+  }
+};

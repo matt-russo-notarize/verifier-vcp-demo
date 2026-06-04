@@ -1,25 +1,29 @@
 "use client";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import "@proof.com/proof-vc-web";
 import { clsx } from "clsx";
-import { getNonce, type UseCase } from "@/app/lib/util";
+import { type UseCase } from "@/app/lib/util";
 import { TRANSACTION_DATA } from "@/app/data/transaction_data";
 
 // Collects the user's email and initiates the OID4VP authorization flow
-export function AuthForm({ useCase }: { useCase: UseCase }) {
-  const [email, setEmail] = useState<string | undefined>(undefined);
+export function AuthForm({
+  useCase,
+  email,
+  onEmailChange,
+  nonce,
+}: {
+  useCase: UseCase;
+  email: string;
+  onEmailChange: (value: string) => void;
+  nonce?: string;
+}) {
   const emailErrorId = useId();
   const [showEmailError, setShowEmailError] = useState(false);
   const transactionData = TRANSACTION_DATA[useCase];
-  const [nonce, setNonce] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    getNonce().then(setNonce);
-  }, []);
 
   return (
     <>
-      <label htmlFor="email" className="mb-4 flex flex-col gap-1">
+      <label htmlFor="email" className="flex flex-col gap-1">
         <span className="mb-2 text-base font-bold">
           Email <span className="text-red-400">*</span>
         </span>
@@ -33,13 +37,13 @@ export function AuthForm({ useCase }: { useCase: UseCase }) {
           value={email}
           aria-describedby={showEmailError ? emailErrorId : undefined}
           onChange={(e) => {
-            setEmail(e.target.value);
+            onEmailChange(e.target.value);
             if (showEmailError) {
               setShowEmailError(false);
             }
           }}
           onBlur={() => {
-            if (email !== undefined) {
+            if (email) {
               const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
               if (!isValidEmail) {
                 setShowEmailError(true);
@@ -65,9 +69,10 @@ export function AuthForm({ useCase }: { useCase: UseCase }) {
         <proof-verify-id
           nonce={nonce}
           state={useCase}
-          size="small"
+          size="medium"
           login-hint={email}
           transactionData={transactionData}
+          style={{ alignSelf: "end" }}
         />
       )}
 
