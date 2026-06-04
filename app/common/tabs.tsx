@@ -41,14 +41,12 @@ export function PillTabs<T extends string>({
 }) {
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [activeTab, setActiveTab] = useState<T>(selectedTab ?? tabs[0].key);
+  const [prevSelected, setPrevSelected] = useState(selectedTab);
 
-  useEffect(() => {
-    if (selectedTab && selectedTab !== activeTab) {
-      setActiveTab(selectedTab);
-    }
-    // Including activeTab would cause an infinite loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTab]);
+  if (selectedTab !== undefined && selectedTab !== prevSelected) {
+    setPrevSelected(selectedTab);
+    setActiveTab(selectedTab);
+  }
 
   const activate = (key: T) => {
     setActiveTab(key);
@@ -102,14 +100,12 @@ export function Tabs({
   const [activeTab, setActiveTab] = useState(selectedTab ?? tabs[0].key);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
+  const [prevSelected, setPrevSelected] = useState(selectedTab);
 
-  useEffect(() => {
-    if (selectedTab && selectedTab !== activeTab) {
-      setActiveTab(selectedTab);
-    }
-    // Including activeTab would cause an infinite loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedTab]);
+  if (selectedTab !== undefined && selectedTab !== prevSelected) {
+    setPrevSelected(selectedTab);
+    setActiveTab(selectedTab);
+  }
 
   useEffect(() => {
     const activeIndex = tabs.findIndex((t) => t.key === activeTab);
