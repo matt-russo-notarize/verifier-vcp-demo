@@ -26,6 +26,9 @@ type Presentation = Partial<Record<UseCase, Record<string, unknown>>>;
 
 const getInitialEnvironmentKey = (): EnvironmentKey => {
   if (typeof document !== "undefined") {
+    if (/localhost/.test(document.referrer)) {
+      return "localhost";
+    }
     if (/\.next\.proof\.com/.test(document.referrer)) {
       return "next";
     }
@@ -33,7 +36,7 @@ const getInitialEnvironmentKey = (): EnvironmentKey => {
       return "staging";
     }
   }
-  return "localhost";
+  return "fairfax";
 };
 
 export default function Home() {
@@ -61,13 +64,17 @@ export default function Home() {
   const [presentation, setPresentation] = useState<Presentation>({});
 
   useEffect(() => {
-    const environment = ENVIRONMENTS[environmentKey].environment;
+    const { environment, clientId, clientSecret } =
+      ENVIRONMENTS[environmentKey];
+    const pushed = authzMethod === "pushed";
     init({
       environment,
-      client_id: ENVIRONMENTS[environmentKey].clientId[useCase],
+      client_id: clientId[useCase],
+      // Only sent for PAR; never include the secret in a query-mode redirect.
+      client_secret: pushed ? clientSecret[useCase] : undefined,
       response_mode: responseMode,
       callback_uri: callbackURI(environment, responseMode),
-      use_pushed_authorization_request: authzMethod === "pushed",
+      use_pushed_authorization_request: pushed,
     });
   }, [useCase, environmentKey, responseMode, authzMethod]);
 
