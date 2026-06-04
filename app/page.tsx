@@ -16,6 +16,10 @@ import {
   ENVIRONMENTS,
   RESPONSE_MODES,
 } from "./lib/environments";
+import {
+  AUTHORIZATION_METHODS,
+  type AuthorizationMethod,
+} from "./lib/authorization_methods";
 import { authorizationRequestPreview } from "./lib/request_preview";
 
 type Presentation = Partial<Record<UseCase, Record<string, unknown>>>;
@@ -38,6 +42,7 @@ export default function Home() {
     getInitialEnvironmentKey(),
   );
   const [responseMode, setResponseMode] = useState<ResponseMode>("fragment");
+  const [authzMethod, setAuthzMethod] = useState<AuthorizationMethod>("query");
   const [email, setEmail] = useState("");
   const [nonce, setNonce] = useState<string | undefined>(undefined);
 
@@ -62,8 +67,9 @@ export default function Home() {
       client_id: ENVIRONMENTS[environmentKey].clientId[useCase],
       response_mode: responseMode,
       callback_uri: callbackURI(environment, responseMode),
+      use_pushed_authorization_request: authzMethod === "pushed",
     });
-  }, [useCase, environmentKey, responseMode]);
+  }, [useCase, environmentKey, responseMode, authzMethod]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.slice(1));
@@ -113,6 +119,7 @@ export default function Home() {
     environmentKey,
     useCase,
     responseMode,
+    pushedAuthorization: authzMethod === "pushed",
     nonce,
     loginHint: email,
   });
@@ -248,6 +255,23 @@ export default function Home() {
                 {value}
               </option>
             ))}
+          </select>
+          <select
+            name="authzMethod"
+            aria-label="Authorization method:"
+            value={authzMethod}
+            onChange={(e) =>
+              setAuthzMethod(e.target.value as AuthorizationMethod)
+            }
+            className="pointer-cursor mb-2 bg-transparent text-xs text-gray-600 focus:outline-none sm:text-sm"
+          >
+            {(Object.keys(AUTHORIZATION_METHODS) as AuthorizationMethod[]).map(
+              (key) => (
+                <option key={key} value={key}>
+                  {AUTHORIZATION_METHODS[key].label}
+                </option>
+              ),
+            )}
           </select>
         </div>
       </footer>
