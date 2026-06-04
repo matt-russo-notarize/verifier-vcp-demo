@@ -1,59 +1,29 @@
 "use client";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import "@proof.com/proof-vc-web";
 import { clsx } from "clsx";
-
-import { Button } from "./button";
+import { getNonce, type UseCase } from "@/app/lib/util";
+import { TRANSACTION_DATA } from "@/app/data/transaction_data";
 
 // Collects the user's email and initiates the OID4VP authorization flow
-export function AuthForm({
-  email,
-  setEmail,
-  requestParams,
-  endpoint,
-}: {
-  email: string;
-  setEmail: (email: string) => void;
-  requestParams: Record<string, string>;
-  endpoint: string;
-}) {
+export function AuthForm({ useCase }: { useCase: UseCase }) {
+  const [email, setEmail] = useState<string | undefined>(undefined);
   const emailErrorId = useId();
-  const emailRef = useRef<HTMLInputElement>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [showEmailError, setShowEmailError] = useState(false);
+  const transactionData = TRANSACTION_DATA[useCase];
+  const [nonce, setNonce] = useState<string | undefined>(undefined);
 
-  // Redirects to <endpoint> with <requestParams> as query parameters
-  const handleAuthorize = (e: React.FormEvent) => {
-    e.preventDefault();
-    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-    if (!isValidEmail) {
-      setShowEmailError(true);
-      emailRef.current?.focus();
-      return;
-    }
-    setIsLoading(true);
-
-    const params = new URLSearchParams(requestParams);
-    const valuesToRemove: string[] = [];
-    params.forEach((entry, key) => {
-      const value = entry.valueOf();
-      if (value === undefined || value === "undefined") {
-        valuesToRemove.push(key);
-      }
-    });
-
-    valuesToRemove.forEach((key) => params.delete(key));
-    window.location.href = `${endpoint}?${params}`;
-  };
+  useEffect(() => {
+    getNonce().then(setNonce);
+  }, []);
 
   return (
-    <form onSubmit={handleAuthorize}>
+    <>
       <label htmlFor="email" className="mb-4 flex flex-col gap-1">
         <span className="mb-2 text-base font-bold">
           Email <span className="text-red-400">*</span>
         </span>
         <input
-          ref={emailRef}
           aria-required="true"
           id="email"
           type="email"
@@ -69,10 +39,11 @@ export function AuthForm({
             }
           }}
           onBlur={() => {
-            const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-            if (!isValidEmail) {
-              setShowEmailError(true);
+            if (email !== undefined) {
+              const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+              if (!isValidEmail) {
+                setShowEmailError(true);
+              }
             }
           }}
           placeholder="you@email.com"
@@ -89,14 +60,17 @@ export function AuthForm({
           )}
         </div>
       </label>
-      <Button
-        type="submit"
-        disabled={isLoading}
-        loading={isLoading}
-        className="w-full"
-      >
-        {isLoading ? "Authorizing..." : "Authorize"}
-      </Button>
+
+      {nonce && (
+        <proof-verify-id
+          nonce={nonce}
+          state={useCase}
+          size="small"
+          login-hint={email}
+          transactionData={transactionData}
+        />
+      )}
+
       <div className="mt-2">
         <p className="text-xs/5 font-light text-gray-400">
           By clicking &quot;Authorize,&quot; you are agreeing to{" "}
@@ -116,6 +90,6 @@ export function AuthForm({
           .
         </p>
       </div>
-    </form>
+    </>
   );
 }
