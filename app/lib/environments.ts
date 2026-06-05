@@ -36,7 +36,11 @@ export const ENVIRONMENTS: Record<
     label: "Staging",
     environment: "staging",
     clientId: { merchant: "cazd76bjn", ap2: "carn6kbzd", wire: "cagnkmwyn" },
-    clientSecret: { merchant: "", ap2: "", wire: "" },
+    clientSecret: {
+      merchant: "3235c645-7bd1-42b8-81f5-2145312fe6a4",
+      ap2: "b0d73eed-2acc-4dff-bb07-b2fc47a0a433",
+      wire: "fe21458a-fa1f-47f2-93e0-223e9c25a99d",
+    },
   },
   fairfax: {
     label: "Fairfax",
