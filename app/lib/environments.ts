@@ -46,7 +46,11 @@ export const ENVIRONMENTS: Record<
     label: "Fairfax",
     environment: "sandbox",
     clientId: { merchant: "caqnb6rwn", ap2: "ca6nob9jd", wire: "camdrbpxd" },
-    clientSecret: { merchant: "", ap2: "", wire: "" },
+    clientSecret: {
+      merchant: "0ae23fe0-1212-45a6-8d77-0883b72d7c79",
+      ap2: "216d2d97-eafb-4261-af25-5c728b7313bf",
+      wire: "fb0a6d35-0123-4033-90ea-e1ad60423f87",
+    },
   },
 };
 
