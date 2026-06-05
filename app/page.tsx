@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { init, type ResponseMode } from "@proof.com/proof-vc-web";
 import { Block } from "./common/block";
 import { PillTabs } from "./common/tabs";
@@ -9,7 +9,15 @@ import { MerchantCase } from "./_components/use_cases/merchant-case";
 import { WireTransferCase } from "./_components/use_cases/wire-transfer-case";
 import { AP2Case } from "./_components/use_cases/ap2-case";
 import { ProtocolPanel } from "./_components/protocol-panel";
-import { consumeNonce, getNonce, parseUseCase, type UseCase } from "./lib/util";
+import {
+  ensureNonce,
+  nonceServerSnapshot,
+  nonceSnapshot,
+  parseUseCase,
+  rotateNonce,
+  subscribeNonce,
+  type UseCase,
+} from "./lib/util";
 import {
   callbackURI,
   EnvironmentKey,
@@ -26,7 +34,7 @@ type Presentation = Partial<Record<UseCase, Record<string, unknown>>>;
 
 const getInitialEnvironmentKey = (): EnvironmentKey => {
   if (typeof document !== "undefined") {
-    if (/localhost/.test(document.referrer)) {
+    if (/app\.local\.dev-notarize\.com/.test(document.referrer)) {
       return "localhost";
     }
     if (/\.next\.proof\.com/.test(document.referrer)) {
@@ -39,29 +47,55 @@ const getInitialEnvironmentKey = (): EnvironmentKey => {
   return "fairfax";
 };
 
+// "localhost" is only useful when running the app locally (`next dev`); hide it
+// from the dropdown in the deployed (Amplify) production build.
+const ENVIRONMENT_KEYS = (Object.keys(ENVIRONMENTS) as EnvironmentKey[]).filter(
+  (key) => key !== "localhost" || process.env.NODE_ENV === "development",
+);
+
 export default function Home() {
   const [useCase, setUseCase] = useState<UseCase>("merchant");
   const [environmentKey, setEnv] = useState<EnvironmentKey>(
     getInitialEnvironmentKey(),
   );
-  const [responseMode, setResponseMode] = useState<ResponseMode>("fragment");
-  const [authzMethod, setAuthzMethod] = useState<AuthorizationMethod>("query");
+  const [responseMode, setResponseMode] = useState<ResponseMode>("direct_post");
+  const [authzMethod, setAuthzMethod] = useState<AuthorizationMethod>("pushed");
+  const [presentation, setPresentation] = useState<Presentation>({});
+  const [error, setError] = useState<Partial<Record<UseCase, string>>>({});
   const [email, setEmail] = useState("");
-  const [nonce, setNonce] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    getNonce().then(setNonce);
-  }, []);
+  const nonce = useSyncExternalStore(
+    subscribeNonce,
+    nonceSnapshot,
+    nonceServerSnapshot,
+  );
 
   const fetchVPToken = async (responseCode: string): Promise<string> => {
-    const request = new Request(`/api/search?response_code=${responseCode}`);
-    // promise error is uncaught
-    const response = await fetch(request);
+    const response = await fetch(`/api/search?response_code=${responseCode}`);
+    if (!response.ok) {
+      throw new Error(`fetch token failed: ${response.status}`);
+    }
     const json = await response.json();
     return json["vp_token"];
   };
-
-  const [presentation, setPresentation] = useState<Presentation>({});
+  const verifyVPToken = async (
+    token: string,
+    nonce: string,
+  ): Promise<Record<string, unknown>> => {
+    const response = await fetch("/api/verify_vp_token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vp_token: token, nonce }),
+    });
+    const json = await response.json();
+    if (!response.ok) {
+      throw new Error(
+        typeof json?.error === "string"
+          ? json.error
+          : `verification failed: ${response.status}`,
+      );
+    }
+    return json;
+  };
 
   useEffect(() => {
     const { environment, clientId, clientSecret } =
@@ -70,7 +104,6 @@ export default function Home() {
     init({
       environment,
       client_id: clientId[useCase],
-      // Only sent for PAR; never include the secret in a query-mode redirect.
       client_secret: pushed ? clientSecret[useCase] : undefined,
       response_mode: responseMode,
       callback_uri: callbackURI(environment, responseMode),
@@ -84,37 +117,48 @@ export default function Home() {
     const responseCode = params.get("response_code");
     const vpToken = params.get("vp_token");
 
+    if (!vpToken && !responseCode) {
+      ensureNonce();
+      return;
+    }
+
+    const previousNonce = rotateNonce();
+
     const resolveToken = vpToken
       ? Promise.resolve(vpToken)
       : responseCode
         ? fetchVPToken(responseCode)
         : Promise.resolve(null);
 
-    resolveToken.then((token) => {
-      if (!token) {
-        return;
-      }
-      consumeNonce().then((nonce) =>
-        fetch("/api/verify_vp_token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ vp_token: token, nonce }),
-        })
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error(`verification failed: ${response.status}`);
-            }
-            return response.json() as Promise<Record<string, unknown>>;
-          })
-          .then((result) => {
-            const useCase = parseUseCase(state);
-            if (useCase) {
-              setUseCase(useCase);
-              setPresentation({ [useCase]: result });
-            }
-          }),
-      );
-    });
+    resolveToken
+      .then((token) => {
+        if (!token) {
+          return null;
+        }
+        if (!previousNonce) {
+          throw new Error("missing nonce");
+        }
+        return verifyVPToken(token, previousNonce);
+      })
+      .then((result) => {
+        if (!result) {
+          return;
+        }
+        const useCase = parseUseCase(state);
+        if (useCase) {
+          setUseCase(useCase);
+          setPresentation({ [useCase]: result });
+        }
+      })
+      .catch((cause) => {
+        const useCase = parseUseCase(state);
+        if (useCase) {
+          setUseCase(useCase);
+          setError({
+            [useCase]: cause instanceof Error ? cause.message : String(cause),
+          });
+        }
+      });
   }, []);
 
   const [dismissed, setDismissed] = useState<Set<UseCase>>(new Set());
@@ -206,6 +250,7 @@ export default function Home() {
           <Block id="protocol-block" title="Protocol">
             <ProtocolPanel
               presentation={presentation[useCase] ?? null}
+              error={error[useCase] ?? null}
               requestParams={requestParams}
               endpoint={endpoint}
             />
@@ -244,7 +289,7 @@ export default function Home() {
             onChange={(e) => setEnv(e.target.value as EnvironmentKey)}
             className="pointer-cursor mb-2 bg-transparent text-xs text-gray-600 focus:outline-none sm:text-sm"
           >
-            {(Object.keys(ENVIRONMENTS) as EnvironmentKey[]).map((key) => (
+            {ENVIRONMENT_KEYS.map((key) => (
               <option key={key} value={key}>
                 {ENVIRONMENTS[key].label}
               </option>

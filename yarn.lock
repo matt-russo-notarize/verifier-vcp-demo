@@ -4605,10 +4605,20 @@
     "@sd-jwt/core" "^0.19.0"
     "@sd-jwt/sd-jwt-vc" "^0.19.0"
 
-"@proof.com/proof-vc-web@^0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@proof.com/proof-vc-web/-/proof-vc-web-0.1.0.tgz#41683d159aaf3e969d6ad1385870cd7941a0144f"
-  integrity sha512-58CWTjq5hppGb1CumrvlhPTHOf7J1BEIRtYqVcmIc5REGhxkxBaWP4QxfDzSNds/+B2O2EYEBQrNvft3Ypq3Rw==
+"@proof.com/proof-vc-common@^0.1.3":
+  version "0.1.3"
+  resolved "https://registry.yarnpkg.com/@proof.com/proof-vc-common/-/proof-vc-common-0.1.3.tgz#72cc1b9428cc1338c4dc6cd4179eec023745d00e"
+  integrity sha512-6Kf67uem1NiNb+NrVGtSlVELfqjN+G4+EnmRa/fmzgIw/WtIV73IcA+Q/NCRFYFgxPX2P3r3+3JGkICnryCdgg==
+  dependencies:
+    "@owf/crypto" "^0.2.0"
+    "@owf/identity-common" "^0.2.0"
+    "@sd-jwt/core" "^0.19.0"
+    "@sd-jwt/sd-jwt-vc" "^0.19.0"
+
+"@proof.com/proof-vc-web@^0.1.3":
+  version "0.1.3"
+  resolved "https://registry.yarnpkg.com/@proof.com/proof-vc-web/-/proof-vc-web-0.1.3.tgz#b489cf4bdc9a89ad091ef932a3027db3d995303a"
+  integrity sha512-BM10Kf4n21u5Ke1J960GvIVgtSgy/V67YgavVIaL35sMRv6ndXE0hTss3Nt0Fe46j1qI9p4lbVDngboIWUNbkA==
   dependencies:
     "@proof.com/proof-vc-common" "^0.1.2"
 

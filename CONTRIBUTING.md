@@ -3,7 +3,7 @@
 ## Requirements
 
 - Node.js
-- npm
+- yarn
 
 ## Getting started
 
@@ -22,13 +22,13 @@ If you have a feature idea, open a GitHub Discussion before starting work on it.
 Code formatting is enforced with Prettier. Check your code against the project's standards by running:
 
 ```sh
-npm run lint
+yarn run lint
 ```
 
 To fix formatting violations:
 
 ```sh
-npm run format
+yarn run format
 ```
 
 ## Pull request process

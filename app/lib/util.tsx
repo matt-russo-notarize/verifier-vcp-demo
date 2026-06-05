@@ -14,14 +14,30 @@ export const parseUseCase = (s: string | undefined): UseCase | null => {
   return null;
 };
 
-export const getNonce = async (): Promise<string> => {
-  const nonce = crypto.randomUUID();
-  await cookieStore.set("nonce", nonce);
-  return nonce;
+const NONCE_KEY = "nonce";
+const nonceListeners = new Set<() => void>();
+const notifyNonce = () => nonceListeners.forEach((listener) => listener());
+
+export const subscribeNonce = (listener: () => void): (() => void) => {
+  nonceListeners.add(listener);
+  return () => nonceListeners.delete(listener);
 };
 
-export const consumeNonce = async (): Promise<string | undefined> => {
-  const cookie = await cookieStore.get("nonce");
-  await cookieStore.delete("nonce");
-  return cookie?.value;
+export const nonceSnapshot = (): string | undefined =>
+  localStorage.getItem(NONCE_KEY) ?? undefined;
+
+export const nonceServerSnapshot = (): undefined => undefined;
+
+export const ensureNonce = (): void => {
+  if (!localStorage.getItem(NONCE_KEY)) {
+    localStorage.setItem(NONCE_KEY, crypto.randomUUID());
+    notifyNonce();
+  }
+};
+
+export const rotateNonce = (): string | undefined => {
+  const previous = localStorage.getItem(NONCE_KEY) ?? undefined;
+  localStorage.setItem(NONCE_KEY, crypto.randomUUID());
+  notifyNonce();
+  return previous;
 };

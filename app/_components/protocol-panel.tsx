@@ -4,16 +4,18 @@ import { Code } from "../common/code";
 
 export function ProtocolPanel({
   presentation,
+  error,
   requestParams,
   endpoint,
 }: {
   presentation: Record<string, unknown> | null;
+  error: string | null;
   requestParams: Record<string, unknown>;
   endpoint: string;
 }) {
   return (
     <Tabs
-      selectedTab={presentation ? "presentation" : "request"}
+      selectedTab={presentation || error ? "presentation" : "request"}
       tabs={[
         {
           key: "request",
@@ -39,15 +41,21 @@ export function ProtocolPanel({
           label: "Presentation",
           content: (
             <div className="flex flex-col gap-6 pt-2">
-              <Visualizer
-                data={presentation}
-                defaultOpenKeys={[
-                  "proof_id_default",
-                  "payload",
-                  "disclosures",
-                  "kbJwt",
-                ]}
-              />
+              {error ? (
+                <div className="rounded bg-gray-950 px-3 py-2 font-mono text-sm text-red-400">
+                  {error}
+                </div>
+              ) : (
+                <Visualizer
+                  data={presentation}
+                  defaultOpenKeys={[
+                    "proof_id_default",
+                    "payload",
+                    "disclosures",
+                    "kbJwt",
+                  ]}
+                />
+              )}
             </div>
           ),
         },

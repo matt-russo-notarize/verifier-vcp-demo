@@ -72,13 +72,13 @@ export function AuthForm({
           size="medium"
           login-hint={email}
           transactionData={transactionData}
-          style={{ alignSelf: "end" }}
+          style={{ display: "flex", flexDirection: "column", width: "100%" }}
         />
       )}
 
       <div className="mt-2">
         <p className="text-xs/5 font-light text-gray-400">
-          By clicking &quot;Authorize,&quot; you are agreeing to{" "}
+          By clicking &quot;Continue with Proof,&quot; you are agreeing to{" "}
           <a
             href="https://www.proof.com/legal/general-terms"
             className="underline hover:text-gray-200"

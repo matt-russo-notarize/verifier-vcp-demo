@@ -16,7 +16,11 @@ export const ENVIRONMENTS: Record<
     label: "localhost",
     environment: "localhost",
     clientId: { merchant: "cay6ej55p", ap2: "cay6ej55p", wire: "cay6ej55p" },
-    clientSecret: { merchant: "", ap2: "", wire: "" },
+    clientSecret: {
+      merchant: "779b9042-24be-4af6-998a-e697e1d1af2c",
+      ap2: "779b9042-24be-4af6-998a-e697e1d1af2c",
+      wire: "779b9042-24be-4af6-998a-e697e1d1af2c",
+    },
   },
   next: {
     label: "Next",
