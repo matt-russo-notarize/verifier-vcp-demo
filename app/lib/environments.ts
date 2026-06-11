@@ -54,17 +54,24 @@ export const ENVIRONMENTS: Record<
   },
 };
 
+const FALLBACK_ORIGIN = "https://demo.next.proof.com";
+
 export const callbackURI = (
-  environment: Environment,
+  origin: string,
   responseMode: ResponseMode,
-): string => {
-  if (environment === "localhost") {
-    return responseMode === "fragment"
-      ? "http://localhost:3050"
-      : "http://localhost:3050/api/verify";
-  } else {
-    return responseMode === "fragment"
-      ? "https://demo.next.proof.com"
-      : "https://demo.next.proof.com/api/verify";
+): string => (responseMode === "fragment" ? origin : `${origin}/api/verify`);
+
+export const subscribeOrigin = (): (() => void) => () => {};
+
+export const originSnapshot = (): string => window.location.origin;
+
+export const originServerSnapshot = (): string => FALLBACK_ORIGIN;
+
+export const originFromRequest = (request: Request): string => {
+  const host = request.headers.get("host");
+  if (!host) {
+    return FALLBACK_ORIGIN;
   }
+  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(host);
+  return `${isLocal ? "http" : "https"}://${host}`;
 };

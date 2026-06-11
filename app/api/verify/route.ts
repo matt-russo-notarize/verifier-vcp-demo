@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { randomBytes } from "crypto";
-import { callbackURI } from "../../lib/environments";
+import { callbackURI, originFromRequest } from "../../lib/environments";
 import { DataClient } from "../data_client";
 
 export async function POST(request: NextRequest) {
@@ -18,12 +18,7 @@ export async function POST(request: NextRequest) {
     expiresAt: expiration,
   });
 
-  const isLocalhost =
-    request.headers.get("host")?.includes("localhost") ?? false;
-  const callback = callbackURI(
-    isLocalhost ? "localhost" : "sandbox",
-    "fragment",
-  );
+  const callback = callbackURI(originFromRequest(request), "fragment");
   return Response.json({
     redirect_uri: `${callback}#response_code=${nonce}&state=${state}`,
   });
