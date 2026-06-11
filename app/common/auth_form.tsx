@@ -22,7 +22,16 @@ export function AuthForm({
   const transactionData = TRANSACTION_DATA[useCase];
 
   return (
-    <>
+    <form
+      style={{ display: "contents" }}
+      onSubmit={(e) => {
+        e.preventDefault();
+        e.currentTarget
+          .querySelector("proof-verify-id")
+          ?.shadowRoot?.querySelector("button")
+          ?.click();
+      }}
+    >
       <label htmlFor="email" className="flex flex-col gap-1">
         <span className="mb-2 text-base font-bold">
           Email <span className="text-red-400">*</span>
@@ -95,6 +104,6 @@ export function AuthForm({
           .
         </p>
       </div>
-    </>
+    </form>
   );
 }
