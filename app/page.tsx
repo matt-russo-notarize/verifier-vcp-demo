@@ -22,7 +22,10 @@ import {
   callbackURI,
   EnvironmentKey,
   ENVIRONMENTS,
+  originServerSnapshot,
+  originSnapshot,
   RESPONSE_MODES,
+  subscribeOrigin,
 } from "./lib/environments";
 import {
   AUTHORIZATION_METHODS,
@@ -68,6 +71,11 @@ export default function Home() {
     nonceSnapshot,
     nonceServerSnapshot,
   );
+  const origin = useSyncExternalStore(
+    subscribeOrigin,
+    originSnapshot,
+    originServerSnapshot,
+  );
 
   const fetchVPToken = async (responseCode: string): Promise<string> => {
     const response = await fetch(`/api/search?response_code=${responseCode}`);
@@ -106,10 +114,10 @@ export default function Home() {
       client_id: clientId[useCase],
       client_secret: pushed ? clientSecret[useCase] : undefined,
       response_mode: responseMode,
-      callback_uri: callbackURI(environment, responseMode),
+      callback_uri: callbackURI(origin, responseMode),
       use_pushed_authorization_request: pushed,
     });
-  }, [useCase, environmentKey, responseMode, authzMethod]);
+  }, [useCase, environmentKey, responseMode, authzMethod, origin]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.hash.slice(1));
@@ -173,6 +181,7 @@ export default function Home() {
     pushedAuthorization: authzMethod === "pushed",
     nonce,
     loginHint: email,
+    origin,
   });
 
   return (
@@ -243,6 +252,9 @@ export default function Home() {
                 email={email}
                 onEmailChange={setEmail}
                 nonce={nonce}
+                authzMethod={authzMethod}
+                environmentKey={environmentKey}
+                responseMode={responseMode}
               />
             </div>
           </Block>

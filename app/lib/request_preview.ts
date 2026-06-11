@@ -23,6 +23,7 @@ export const authorizationRequestPreview = ({
   pushedAuthorization,
   nonce,
   loginHint,
+  origin,
 }: {
   environmentKey: EnvironmentKey;
   useCase: UseCase;
@@ -30,12 +31,13 @@ export const authorizationRequestPreview = ({
   pushedAuthorization: boolean;
   nonce?: string;
   loginHint?: string;
+  origin: string;
 }): { endpoint: string; params: Record<string, unknown> } => {
   const { environment, clientId } = ENVIRONMENTS[environmentKey];
   const endpoint = `${API_HOSTS[environment]}${PRESENTATION_PATH}${
     pushedAuthorization ? "/par" : "/authorize"
   }`;
-  const callback = callbackURI(environment, responseMode);
+  const callback = callbackURI(origin, responseMode);
 
   // transaction_data is shown decoded for readability; the real request sends
   // its base64url encoding.
