@@ -1,6 +1,47 @@
-export const TRANSACTION_DATA = {
-  wire: "eyJ0eXBlIjoidXJuOnByb29mOnBhcmFtczp2Yzp0cmFuc2FjdGlvbi1kYXRhOndpcmUtaW5zdHJ1Y3Rpb25zOnYxIiwiY3JlZGVudGlhbF9pZHMiOlsicHJvb2ZfaWRfZGVmYXVsdCJdLCJwYXlsb2FkIjp7InJlY2lwaWVudCI6eyJpbnN0aXR1dGlvbl9uYW1lIjoiQ3Jlc3RsaW5lIEZpbmFuY2lhbCIsImluZGl2aWR1YWxfbmFtZSI6IkFjbWUgQ29ycCBMTEMiLCJyb3V0aW5nX251bWJlciI6IjA1NTAwMDEyMyIsImFjY291bnRfbnVtYmVyIjoiNzI5MyJ9LCJzb3VyY2UiOnsiaW5zdGl0dXRpb25fbmFtZSI6IlN0ZXJsaW5nICYgVW5pb24iLCJpbmRpdmlkdWFsX25hbWUiOiJTdGVybGluZyAmIFVuaW9uIiwiYWNjb3VudF9udW1iZXIiOiI0ODIxIiwicm91dGluZ19udW1iZXIiOiIwOTEwMDA0NTYifSwiYW1vdW50Ijo1MDAwLCJjdXJyZW5jeSI6IlVTRCIsIm1lbW8iOiJJbnZvaWNlICMyMDI0LTA4OSJ9fQ",
-  merchant:
-    "eyJ0eXBlIjoidXJuOnByb29mOnBhcmFtczp2Yzp0cmFuc2FjdGlvbi1kYXRhOnBheW1lbnQtaXRlbWl6ZWQ6djEiLCJjcmVkZW50aWFsX2lkcyI6WyJwcm9vZl9pZF9kZWZhdWx0Il0sInBheWxvYWQiOnsidGl0bGUiOiJEcml2ZSBTaGFmdCIsImRlc2NyaXB0aW9uIjoiVGhlIFJvYWRob3VzZSAoMTgrKSwgTWF5IDYgMjAyNiIsImN1cnJlbmN5IjoiVVNEIiwiaXRlbXMiOlt7InF1YW50aXR5IjoyLCJ1bml0X2Nvc3QiOjQwLjAsImxhYmVsIjoiR2VuZXJhbCBBZG1pc3Npb24ifSx7InF1YW50aXR5IjoyLCJ1bml0X2Nvc3QiOjExLjQsImxhYmVsIjoiRmVlcyJ9XX19",
-  ap2: "eyJ0eXBlIjoidXJuOnByb29mOnBhcmFtczp2Yzp0cmFuc2FjdGlvbi1kYXRhOnBheW1lbnQtbWFuZGF0ZTp2MSIsImNyZWRlbnRpYWxfaWRzIjpbInByb29mX2lkX2RlZmF1bHQiXSwicGF5bG9hZCI6eyJwYXltZW50X2luc3RydW1lbnQiOnsidHlwZSI6IndhbGxldCIsImlkIjoiZGlkOmV4YW1wbGU6dmlzYS10b2tlbi03ODI5IiwiZGVzY3JpcHRpb24iOiJWaXNhIOKAouKAouKAouKAojc4MjkifSwicGF5ZWUiOnsiaWQiOiJkaWQ6ZXhhbXBsZTpzdW1taXRjbyIsIm5hbWUiOiJTdW1taXQgQ28iLCJ3ZWJzaXRlIjoic3VtbWl0Y28uY29tIn0sInByb21wdF9zdW1tYXJ5IjoiRmluZCBtZSBhIDQtc2Vhc29uIGJhY2twYWNraW5nIHRlbnQgZnJvbSBTdW1taXQgQ28gdW5kZXIgJDUwMCIsImFtb3VudCI6NTAwLCJjdXJyZW5jeSI6IlVTRCJ9fQ",
+import { transactionData, type TransactionData } from "@proof.com/proof-vc-web";
+import { type UseCase } from "@/app/lib/util";
+
+export const TRANSACTION_DATA: Record<UseCase, TransactionData> = {
+  merchant: transactionData.paymentItemized({
+    title: "Drive Shaft",
+    description: "The Roadhouse (18+), May 6 2026",
+    currency: "USD",
+    items: [
+      { quantity: 2, unit_cost: 40.0, label: "General Admission" },
+      { quantity: 2, unit_cost: 11.4, label: "Fees" },
+    ],
+  }),
+  wire: transactionData.wireInstructions({
+    recipient: {
+      institution_name: "Crestline Financial",
+      individual_name: "Acme Corp LLC",
+      routing_number: "055000123",
+      account_number: "7293",
+    },
+    source: {
+      institution_name: "Sterling & Union",
+      individual_name: "Sterling & Union",
+      account_number: "4821",
+      routing_number: "091000456",
+    },
+    amount: 5000,
+    currency: "USD",
+    memo: "Invoice #2024-089",
+  }),
+  ap2: transactionData.paymentMandate({
+    payment_instrument: {
+      type: "wallet",
+      id: "did:example:visa-token-7829",
+      description: "Visa ••••7829",
+    },
+    payee: {
+      id: "did:example:summitco",
+      name: "Summit Co",
+      website: "summitco.com",
+    },
+    prompt_summary:
+      "Find me a 4-season backpacking tent from Summit Co under $500",
+    amount: 500,
+    currency: "USD",
+  }),
 };

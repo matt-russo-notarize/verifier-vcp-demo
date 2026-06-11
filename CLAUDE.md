@@ -11,6 +11,10 @@ npm run lint     # Run ESLint
 npm run format   # Format with Prettier (includes Tailwind class sorting)
 ```
 
+## Conventions
+
+- Never use `eslint-disable` (or `eslint-disable-next-line`) as a workaround to silence a lint rule. Refactor to a pattern that satisfies the rule instead.
+
 ## Architecture
 
 This is a **Next.js App Router** demo — **Verifiable Credentials Presentation Verifier** — showcasing how merchants, financial institutions, and AI agents can use the Proof wallet to request identity-verified authorization from users via OID4VP.

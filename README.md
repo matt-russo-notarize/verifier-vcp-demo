@@ -29,10 +29,10 @@ direnv allow
 just dev      # http://localhost:3050
 ```
 
-### Using NPM
+### Using Yarn
 ```bash
-npm install
-npm run dev      # http://localhost:3050
+yarn install
+yarn run dev      # http://localhost:3050
 ```
 
 ## Commands
@@ -43,13 +43,13 @@ npm run dev      # http://localhost:3050
 | `just build`  | Production build (static export) |
 | `just lint`   | Run ESLint                       |
 | `just format` | Format with Prettier             |
-### Using NPM
+### Using Yarn
 | Command          | Description                      |
-| ---------------- | -------------------------------- |
-| `npm run dev`    | Start the dev server             |
-| `npm run build`  | Production build (static export) |
-| `npm run lint`   | Run ESLint                       |
-| `npm run format` | Format with Prettier             |
+|------------------| -------------------------------- |
+| `yarn run dev`   | Start the dev server             |
+| `yarn run build` | Production build (static export) |
+| `yarn run lint`  | Run ESLint                       |
+| `yarn run format` | Format with Prettier             |
 
 ## Project Structure
 

@@ -1,97 +1,33 @@
 "use client";
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
+import "@proof.com/proof-vc-web";
 import { clsx } from "clsx";
-
-import { Button } from "./button";
-import { AuthorizationMethod } from "../lib/authorization_methods";
-import { AUTHORIZATION_ENDPOINT, type Environment } from "../lib/environments";
-
-async function generateTransactionUrl({
-  hostname,
-  environment,
-  requestParams,
-  authzMethod,
-}: {
-  hostname: string;
-  environment: Environment;
-  requestParams: Record<string, string>;
-  authzMethod: AuthorizationMethod;
-}) {
-  const requestBody = new URLSearchParams(requestParams);
-  const valuesToRemove: string[] = [];
-  requestBody.forEach((entry, key) => {
-    const value = entry.valueOf();
-    if (value === undefined || value === "undefined") {
-      valuesToRemove.push(key);
-    }
-  });
-
-  valuesToRemove.forEach((key) => requestBody.delete(key));
-
-  if (authzMethod === "query") {
-    return `${hostname}${AUTHORIZATION_ENDPOINT}?${requestBody}`;
-  } else {
-    const request = new Request(`/api/create?environment=${environment}`);
-    return await fetch(request, {
-      method: "POST",
-      body: requestBody,
-    })
-      .then((response) => response.json())
-      .then((json) => {
-        const requestUri = json["request_uri"];
-        return `${hostname}${AUTHORIZATION_ENDPOINT}?request_uri=${requestUri}&client_id=${requestParams.client_id}`;
-      });
-  }
-}
+import { type UseCase } from "@/app/lib/util";
+import { TRANSACTION_DATA } from "@/app/data/transaction_data";
 
 // Collects the user's email and initiates the OID4VP authorization flow
 export function AuthForm({
+  useCase,
   email,
-  setEmail,
-  environment,
-  requestParams,
-  hostname,
-  authzMethod,
+  onEmailChange,
+  nonce,
 }: {
+  useCase: UseCase;
   email: string;
-  setEmail: (email: string) => void;
-  environment: Environment;
-  requestParams: Record<string, string>;
-  hostname: string;
-  authzMethod: AuthorizationMethod;
+  onEmailChange: (value: string) => void;
+  nonce?: string;
 }) {
   const emailErrorId = useId();
-  const emailRef = useRef<HTMLInputElement>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [showEmailError, setShowEmailError] = useState(false);
-
-  // Redirects to <endpoint> with <requestParams> as query parameters
-  const handleAuthorize = async (e: React.SubmitEvent) => {
-    e.preventDefault();
-    const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-    if (!isValidEmail) {
-      setShowEmailError(true);
-      emailRef.current?.focus();
-      return;
-    }
-    setIsLoading(true);
-
-    await generateTransactionUrl({ hostname, environment, requestParams, authzMethod }).then(
-      (transactionUrl) => {
-        window.location.href = transactionUrl;
-      },
-    );
-  };
+  const transactionData = TRANSACTION_DATA[useCase];
 
   return (
-    <form onSubmit={handleAuthorize}>
-      <label htmlFor="email" className="mb-4 flex flex-col gap-1">
+    <>
+      <label htmlFor="email" className="flex flex-col gap-1">
         <span className="mb-2 text-base font-bold">
           Email <span className="text-red-400">*</span>
         </span>
         <input
-          ref={emailRef}
           aria-required="true"
           id="email"
           type="email"
@@ -101,16 +37,17 @@ export function AuthForm({
           value={email}
           aria-describedby={showEmailError ? emailErrorId : undefined}
           onChange={(e) => {
-            setEmail(e.target.value);
+            onEmailChange(e.target.value);
             if (showEmailError) {
               setShowEmailError(false);
             }
           }}
           onBlur={() => {
-            const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-
-            if (!isValidEmail) {
-              setShowEmailError(true);
+            if (email) {
+              const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+              if (!isValidEmail) {
+                setShowEmailError(true);
+              }
             }
           }}
           placeholder="you@email.com"
@@ -127,17 +64,21 @@ export function AuthForm({
           )}
         </div>
       </label>
-      <Button
-        type="submit"
-        disabled={isLoading}
-        loading={isLoading}
-        className="w-full"
-      >
-        {isLoading ? "Authorizing..." : "Authorize"}
-      </Button>
+
+      {nonce && (
+        <proof-verify-id
+          nonce={nonce}
+          state={useCase}
+          size="medium"
+          login-hint={email}
+          transactionData={transactionData}
+          style={{ display: "flex", flexDirection: "column", width: "100%" }}
+        />
+      )}
+
       <div className="mt-2">
         <p className="text-xs/5 font-light text-gray-400">
-          By clicking &quot;Authorize,&quot; you are agreeing to{" "}
+          By clicking &quot;Continue with Proof,&quot; you are agreeing to{" "}
           <a
             href="https://www.proof.com/legal/general-terms"
             className="underline hover:text-gray-200"
@@ -154,6 +95,6 @@ export function AuthForm({
           .
         </p>
       </div>
-    </form>
+    </>
   );
 }

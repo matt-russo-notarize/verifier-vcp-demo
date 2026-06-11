@@ -1,8 +1,8 @@
 "use client";
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
+import { init, type ResponseMode } from "@proof.com/proof-vc-web";
 import { Block } from "./common/block";
 import { PillTabs } from "./common/tabs";
-import { Dialog } from "./common/dialog";
 import { MeshGradient } from "./common/mesh-gradient/mesh-gradient";
 import { AuthForm } from "./common/auth_form";
 import { MerchantCase } from "./_components/use_cases/merchant-case";
@@ -10,190 +10,174 @@ import { WireTransferCase } from "./_components/use_cases/wire-transfer-case";
 import { AP2Case } from "./_components/use_cases/ap2-case";
 import { ProtocolPanel } from "./_components/protocol-panel";
 import {
-  parseVPToken,
-  isUseCase,
-  type ParsedVPToken,
+  ensureNonce,
+  nonceServerSnapshot,
+  nonceSnapshot,
+  parseUseCase,
+  rotateNonce,
+  subscribeNonce,
   type UseCase,
 } from "./lib/util";
 import {
+  callbackURI,
+  EnvironmentKey,
   ENVIRONMENTS,
-  REDIRECT_URI,
-  RESPONSE_URI,
-  AUTHORIZATION_ENDPOINT,
-  PUSHED_AUTHORIZATION_ENDPOINT,
-  type Environment,
+  RESPONSE_MODES,
 } from "./lib/environments";
-import { RESPONSE_MODES, type ResponseMode } from "./lib/response_modes";
 import {
   AUTHORIZATION_METHODS,
   type AuthorizationMethod,
 } from "./lib/authorization_methods";
-import { TRANSACTION_DATA } from "./data/transaction_data";
+import { authorizationRequestPreview } from "./lib/request_preview";
 
-type RequestParams = {
-  response_type: string;
-  client_id: string;
-  redirect_uri?: string | undefined;
-  response_uri?: string | undefined;
-  response_mode: ResponseMode;
-  scope: string;
-  login_hint: string;
-  nonce: string;
-  state: string;
-  transaction_data: string;
-};
+type Presentation = Partial<Record<UseCase, Record<string, unknown>>>;
 
-const getEnvFromReferrer = (referrer: string) => {
-  if (/\.next\.proof\.com/.test(referrer)) {
-    return "next";
-  }
-  if (/\.staging\.proof\.com/.test(referrer)) {
-    return "staging";
+const getInitialEnvironmentKey = (): EnvironmentKey => {
+  if (typeof document !== "undefined") {
+    if (/app\.local\.dev-notarize\.com/.test(document.referrer)) {
+      return "localhost";
+    }
+    if (/\.next\.proof\.com/.test(document.referrer)) {
+      return "next";
+    }
+    if (/\.staging\.proof\.com/.test(document.referrer)) {
+      return "staging";
+    }
   }
   return "fairfax";
 };
 
+// "localhost" is only useful when running the app locally (`next dev`); hide it
+// from the dropdown in the deployed (Amplify) production build.
+const ENVIRONMENT_KEYS = (Object.keys(ENVIRONMENTS) as EnvironmentKey[]).filter(
+  (key) => key !== "localhost" || process.env.NODE_ENV === "development",
+);
+
 export default function Home() {
   const [useCase, setUseCase] = useState<UseCase>("merchant");
-  const [env, setEnv] = useState<Environment>(() =>
-    typeof document !== "undefined"
-      ? getEnvFromReferrer(document.referrer)
-      : "fairfax",
+  const [environmentKey, setEnv] = useState<EnvironmentKey>(
+    getInitialEnvironmentKey(),
   );
+  const [responseMode, setResponseMode] = useState<ResponseMode>("direct_post");
+  const [authzMethod, setAuthzMethod] = useState<AuthorizationMethod>("pushed");
+  const [presentation, setPresentation] = useState<Presentation>({});
+  const [error, setError] = useState<Partial<Record<UseCase, string>>>({});
   const [email, setEmail] = useState("");
-  const [responseMode, setResponseMode] = useState<ResponseMode>("fragment");
-  const [redirectUri, setRedirectUri] = useState<string | undefined>(
-    REDIRECT_URI,
+  const nonce = useSyncExternalStore(
+    subscribeNonce,
+    nonceSnapshot,
+    nonceServerSnapshot,
   );
-  const [responseUri, setResponseUri] = useState<string | undefined>(undefined);
-  const [authzMethod, setAuthzMethod] = useState<AuthorizationMethod>("query");
-  const [authzEndpoint, setAuthzEndpoint] = useState<string>(AUTHORIZATION_ENDPOINT);
-  const [presentation, setPresentation] = useState<
-    Partial<Record<UseCase, ParsedVPToken>>
-  >({});
-  const [parseError, setParseError] = useState(false);
-  const errorDialogRef = useRef<HTMLDialogElement>(null);
-  const [nonce, setNonce] = useState("");
-  const [retrievedToken, setRetrievedToken] = useState("");
 
-  const { hostname, clientApps } = ENVIRONMENTS[env];
-  const requestParams = useMemo<RequestParams>(() => {
-    return {
-      response_type: "vp_token",
-      client_id: clientApps[useCase].clientId,
-      redirect_uri: redirectUri,
-      response_uri: responseUri,
+  const fetchVPToken = async (responseCode: string): Promise<string> => {
+    const response = await fetch(`/api/search?response_code=${responseCode}`);
+    if (!response.ok) {
+      throw new Error(`fetch token failed: ${response.status}`);
+    }
+    const json = await response.json();
+    return json["vp_token"];
+  };
+  const verifyVPToken = async (
+    token: string,
+    nonce: string,
+  ): Promise<Record<string, unknown>> => {
+    const response = await fetch("/api/verify_vp_token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vp_token: token, nonce }),
+    });
+    const json = await response.json();
+    if (!response.ok) {
+      throw new Error(
+        typeof json?.error === "string"
+          ? json.error
+          : `verification failed: ${response.status}`,
+      );
+    }
+    return json;
+  };
+
+  useEffect(() => {
+    const { environment, clientId, clientSecret } =
+      ENVIRONMENTS[environmentKey];
+    const pushed = authzMethod === "pushed";
+    init({
+      environment,
+      client_id: clientId[useCase],
+      client_secret: pushed ? clientSecret[useCase] : undefined,
       response_mode: responseMode,
-      scope: "urn:proof:params:scope:verifiable-credentials:basic",
-      login_hint: email,
-      nonce: nonce || "",
-      state: useCase,
-      transaction_data: TRANSACTION_DATA[useCase],
-    };
-  }, [clientApps, nonce, email, redirectUri, responseUri, responseMode, useCase]);
+      callback_uri: callbackURI(environment, responseMode),
+      use_pushed_authorization_request: pushed,
+    });
+  }, [useCase, environmentKey, responseMode, authzMethod]);
 
   useEffect(() => {
-    // Nonce must be set in an effect to avoid SSR/client mismatch in the Visualizer output.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setNonce(crypto.randomUUID());
-  }, []);
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const state = params.get("state") ?? undefined;
+    const responseCode = params.get("response_code");
+    const vpToken = params.get("vp_token");
 
-  const getTokenFromCode = async (responseCode: string) => {
-    const request = new Request(`/api/search?response_code=${responseCode}`);
-    await fetch(request)
-      .then((response) => response.json())
-      .then((json) => {
-        const token = json["vp_token"];
-        setRetrievedToken(token);
-      });
-  };
+    if (!vpToken && !responseCode) {
+      ensureNonce();
+      return;
+    }
 
-  useEffect(() => {
-    const hash = window.location.hash.slice(1);
-    const params = new URLSearchParams(hash);
-    const state = params.get("state");
-    if (isUseCase(state)) {
-      let token = null;
+    const previousNonce = rotateNonce();
 
-      const responseCode = params.get("response_code");
-      if (responseCode) {
-        getTokenFromCode(responseCode);
-        token = retrievedToken;
-      } else {
-        token = params.get("vp_token");
-      }
+    const resolveToken = vpToken
+      ? Promise.resolve(vpToken)
+      : responseCode
+        ? fetchVPToken(responseCode)
+        : Promise.resolve(null);
 
-      // Reading URL state on mount requires an effect since window is not available on the server.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setUseCase(state);
-
-      if (token) {
-        try {
-          setPresentation({ [state]: parseVPToken(token) });
-        } catch {
-          window.history.replaceState(null, "", window.location.pathname);
-          setParseError(true);
+    resolveToken
+      .then((token) => {
+        if (!token) {
+          return null;
         }
-      }
-    }
-  }, [retrievedToken]);
-
-  useEffect(() => {
-    if (parseError) {
-      errorDialogRef.current?.showModal();
-    }
-  }, [parseError]);
-
-  const dismissError = () => {
-    errorDialogRef.current?.close();
-    setParseError(false);
-  };
-
-  const updateResponseMode = (responseMode: ResponseMode) => {
-    setResponseMode(responseMode);
-    switch (responseMode) {
-      case "fragment":
-        setResponseUri(undefined);
-        setRedirectUri(REDIRECT_URI);
-        break;
-      case "direct_post":
-        setResponseUri(RESPONSE_URI);
-        setRedirectUri(undefined);
-        break;
-    }
-  };
-
-  const updateAuthzMethod = (authzMethod: AuthorizationMethod) => {
-    setAuthzMethod(authzMethod);
-    switch(authzMethod) {
-      case "query":
-        setAuthzEndpoint(AUTHORIZATION_ENDPOINT);
-        break;
-      case "pushed":
-        setAuthzEndpoint(PUSHED_AUTHORIZATION_ENDPOINT);
-        break;
-    }
-  };
+        if (!previousNonce) {
+          throw new Error("missing nonce");
+        }
+        return verifyVPToken(token, previousNonce);
+      })
+      .then((result) => {
+        if (!result) {
+          return;
+        }
+        const useCase = parseUseCase(state);
+        if (useCase) {
+          setUseCase(useCase);
+          setPresentation({ [useCase]: result });
+        }
+      })
+      .catch((cause) => {
+        const useCase = parseUseCase(state);
+        if (useCase) {
+          setUseCase(useCase);
+          setError({
+            [useCase]: cause instanceof Error ? cause.message : String(cause),
+          });
+        }
+      });
+  }, []);
 
   const [dismissed, setDismissed] = useState<Set<UseCase>>(new Set());
   const showSuccess = !!presentation[useCase] && !dismissed.has(useCase);
   const handleDismissSuccess = () =>
     setDismissed((prev) => new Set(prev).add(useCase));
 
+  const { endpoint, params: requestParams } = authorizationRequestPreview({
+    environmentKey,
+    useCase,
+    responseMode,
+    pushedAuthorization: authzMethod === "pushed",
+    nonce,
+    loginHint: email,
+  });
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center">
       <MeshGradient />
-      <Dialog
-        title="Authorization failed"
-        dialogRef={errorDialogRef}
-        onClose={dismissError}
-        buttons={[{ key: "dismiss", label: "Dismiss", onClick: dismissError }]}
-      >
-        <p className="mb-6 text-sm text-gray-400">
-          Something went wrong reading the authorization response. Please try
-          authorizing again.
-        </p>
-      </Dialog>
       <main className="flex w-full max-w-6xl flex-1 flex-col px-2 pt-6 pb-6 sm:px-6 sm:pt-16">
         <div className="px-2 sm:px-0">
           <h1 className="sr-only">Proof</h1>
@@ -255,12 +239,10 @@ export default function Home() {
                     : "Authorize your purchase"}
               </h2>
               <AuthForm
-                setEmail={setEmail}
+                useCase={useCase}
                 email={email}
-                environment={env}
-                requestParams={requestParams}
-                hostname={hostname}
-                authzMethod={authzMethod}
+                onEmailChange={setEmail}
+                nonce={nonce}
               />
             </div>
           </Block>
@@ -268,8 +250,9 @@ export default function Home() {
           <Block id="protocol-block" title="Protocol">
             <ProtocolPanel
               presentation={presentation[useCase] ?? null}
+              error={error[useCase] ?? null}
               requestParams={requestParams}
-              endpoint={`${hostname}${authzEndpoint}`}
+              endpoint={endpoint}
             />
           </Block>
         </div>
@@ -302,11 +285,11 @@ export default function Home() {
           <select
             name="environments"
             aria-label="Endpoint environment:"
-            value={env}
-            onChange={(e) => setEnv(e.target.value as Environment)}
+            value={environmentKey}
+            onChange={(e) => setEnv(e.target.value as EnvironmentKey)}
             className="pointer-cursor mb-2 bg-transparent text-xs text-gray-600 focus:outline-none sm:text-sm"
           >
-            {(Object.keys(ENVIRONMENTS) as Environment[]).map((key) => (
+            {ENVIRONMENT_KEYS.map((key) => (
               <option key={key} value={key}>
                 {ENVIRONMENTS[key].label}
               </option>
@@ -316,21 +299,21 @@ export default function Home() {
             name="responseMode"
             aria-label="Response mode:"
             value={responseMode}
-            onChange={(e) => updateResponseMode(e.target.value as ResponseMode)}
+            onChange={(e) => setResponseMode(e.target.value as ResponseMode)}
             className="pointer-cursor mb-2 bg-transparent text-xs text-gray-600 focus:outline-none sm:text-sm"
           >
-            {(Object.keys(RESPONSE_MODES) as ResponseMode[]).map((key) => (
-              <option key={key} value={key}>
-                {RESPONSE_MODES[key].label}
+            {RESPONSE_MODES.map((value) => (
+              <option key={value} value={value}>
+                {value}
               </option>
             ))}
           </select>
           <select
             name="authzMethod"
-            aria-label="Authorization Request Method:"
+            aria-label="Authorization method:"
             value={authzMethod}
             onChange={(e) =>
-              updateAuthzMethod(e.target.value as AuthorizationMethod)
+              setAuthzMethod(e.target.value as AuthorizationMethod)
             }
             className="pointer-cursor mb-2 bg-transparent text-xs text-gray-600 focus:outline-none sm:text-sm"
           >
