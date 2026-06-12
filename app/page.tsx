@@ -33,7 +33,9 @@ import {
 } from "./lib/authorization_methods";
 import { authorizationRequestPreview } from "./lib/request_preview";
 
-type Presentation = Partial<Record<UseCase, Record<string, unknown>>>;
+type Presentation = Partial<
+  Record<UseCase, { vpToken: string; result: Record<string, unknown> }>
+>;
 
 const getInitialEnvironmentKey = (): EnvironmentKey => {
   if (typeof document !== "undefined") {
@@ -146,16 +148,19 @@ export default function Home() {
         if (!previousNonce) {
           throw new Error("missing nonce");
         }
-        return verifyVPToken(token, previousNonce);
+        return verifyVPToken(token, previousNonce).then((result) => ({
+          vpToken: token,
+          result,
+        }));
       })
-      .then((result) => {
-        if (!result) {
+      .then((data) => {
+        if (!data) {
           return;
         }
         const useCase = parseUseCase(state);
         if (useCase) {
           setUseCase(useCase);
-          setPresentation({ [useCase]: result });
+          setPresentation({ [useCase]: data });
         }
       })
       .catch((cause) => {
@@ -261,7 +266,8 @@ export default function Home() {
 
           <Block id="protocol-block" title="Protocol">
             <ProtocolPanel
-              presentation={presentation[useCase] ?? null}
+              presentation={presentation[useCase]?.result ?? null}
+              rawToken={presentation[useCase]?.vpToken ?? null}
               error={error[useCase] ?? null}
               requestParams={requestParams}
               endpoint={endpoint}
