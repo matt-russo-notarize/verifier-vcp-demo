@@ -100,7 +100,9 @@ export function Wrapper({ useCase }: { useCase: UseCase }) {
       return;
     }
 
-    if (state !== useCase) return;
+    if (state !== useCase) {
+      return;
+    }
 
     const previousNonce = rotateNonce();
 

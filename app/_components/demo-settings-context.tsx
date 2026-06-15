@@ -16,8 +16,12 @@ type DemoSettings = {
 const DemoSettingsContext = createContext<DemoSettings | null>(null);
 
 const getEnvFromReferrer = (referrer: string): EnvironmentKey => {
-  if (/\.next\.proof\.com/.test(referrer)) return "next";
-  if (/\.staging\.proof\.com/.test(referrer)) return "staging";
+  if (/\.next\.proof\.com/.test(referrer)) {
+    return "next";
+  }
+  if (/\.staging\.proof\.com/.test(referrer)) {
+    return "staging";
+  }
   return "fairfax";
 };
 
