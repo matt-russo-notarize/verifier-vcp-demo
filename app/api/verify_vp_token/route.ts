@@ -1,11 +1,7 @@
 import type { NextRequest } from "next/server";
 import { init, verifyVPToken } from "@proof.com/proof-vc-common";
 
-init({
-  environment: "sandbox",
-  client_id: "verifier-demo",
-  callback_uri: "https://demo.next.proof.com/",
-});
+init({ trustRoot: "development" });
 
 export async function POST(request: NextRequest) {
   const { vp_token: vpToken, nonce } = await request.json();
